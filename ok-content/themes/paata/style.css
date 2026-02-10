@@ -1,0 +1,282 @@
+/*
+Theme Name: OK Paata Theme
+Author: OK ძრავის დეველოპერი
+Description: დახვეწილი და თანამედროვე საწყისი თემა OK ძრავისთვის (Paata).
+Version: 2.18
+*/
+
+/* ==========================================================================
+   Google Fonts — Georgian
+   ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;600;700&display=swap');
+
+/* ==========================================================================
+   CSS Custom Properties (Theme Palette)
+   ========================================================================= */
+:root {
+  --ok-font-base: 'Noto Sans Georgian', system-ui, -apple-system, Segoe UI, Roboto, Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  --ok-color-bg: #f8f9fa;
+  --ok-color-text: #212529;
+  --ok-color-muted: #6c757d;
+  --ok-color-primary: #0d6efd;
+  --ok-color-primary-600: #0b5ed7;
+  --ok-color-border: #e5e5e5;
+  --ok-card-bg: #ffffff;
+  --ok-header-bg: #114D4D;           /* Header */
+  --ok-footer-bg: #092B2B;
+  --ok-footer-text: #ffffff;
+  --ok-shadow-sm: 0 0.125rem 0.25rem rgba(0,0,0,0.075);
+  --ok-shadow-md: 0 0.5rem 1rem rgba(0,0,0,0.05);
+  --ok-radius: .5rem;
+  --ok-header-height: 90px;          /* Header height (desktop) */
+  --ok-logo-size: 75px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html { height: 100%; }
+body { min-height: 100dvh; display: flex; flex-direction: column; }
+main.container, main.container-fluid, main.container-xxl { flex: 1 1 auto; }
+
+body {
+  font-family: var(--ok-font-base);
+  background-color: var(--ok-color-bg);
+  color: var(--ok-color-text);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6, .display-5, .blog-post-title a, .site-title {
+  font-family: var(--ok-font-base);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.site-title { font-size: clamp(1.25rem, 1.2rem + 1vw, 1.75rem); }
+.blog-post-title { font-size: clamp(1.1rem, 1rem + .6vw, 2rem); }
+
+a { color: var(--ok-color-text); text-decoration: none; transition: color .2s ease, opacity .2s ease; }
+a:hover { color: var(--ok-color-primary); }
+
+.site-branding { display: flex; align-items: center; gap: .75rem; }
+.site-logo img {
+  width: var(--ok-logo-size); height: var(--ok-logo-size);
+  object-fit: contain; display: block;
+}
+
+.site-title a { color: #fff; text-decoration: none; }
+.site-title a:hover { color: #cfe2ff; text-decoration: none; }
+
+.site-header {
+  position: sticky; top: 0; z-index: 1020;
+  background-color: var(--ok-header-bg) !important;
+  border-bottom: 1px solid var(--ok-color-border);
+  height: var(--ok-header-height);
+  display: flex; align-items: center;
+  box-shadow: var(--ok-shadow-sm);
+  color: #fff;
+}
+.site-description { color: var(--ok-color-muted); font-size: .9rem; font-weight: 300; margin: 0; }
+
+/* ===== Desktop nav items match header height ===== */
+.main-navigation .nav-link {
+  height: var(--ok-header-height);
+  display: flex; align-items: center;
+  padding-left: 1rem; padding-right: 1rem;
+  color: #fff !important;
+}
+.main-navigation .nav-link:hover,
+.main-navigation .nav-link:focus {
+  background-color: rgba(255,255,255,0.1);
+  color: #cfe2ff !important;
+}
+
+/* ===== Cards/Posts/Comments ===== */
+.elevated-card, .blog-post, .comments-area {
+  background-color: var(--ok-card-bg);
+  border-radius: var(--ok-radius);
+  box-shadow: var(--ok-shadow-md);
+}
+.blog-post { display: flex; flex-direction: column; overflow: hidden; }
+
+.blog-post.has-thumbnail { display: grid; grid-template-columns: 1fr; height: auto; }
+.blog-post.has-thumbnail .post-thumb { position: relative; overflow: hidden; }
+.blog-post.has-thumbnail .post-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.blog-post.has-thumbnail .post-thumb { aspect-ratio: 16 / 9; }
+
+@media (min-width: 992px) {
+  .blog-post.has-thumbnail { grid-template-columns: 44% 56%; }
+  .blog-post.has-thumbnail .post-thumb { aspect-ratio: auto; min-height: 220px; }
+}
+
+.blog-post-content { padding: 1.5rem; }
+.blog-post-title { margin-bottom: .25rem; }
+.blog-post-meta { color: var(--ok-color-muted); font-size: .875rem; }
+.blog-post-title a { text-decoration: none; }
+
+.post-cover {
+  position: relative; height: clamp(28vh, 24vh + 6vw, 40vh);
+  background-size: cover; background-position: center; color: #fff;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  border-top-left-radius: var(--ok-radius); border-top-right-radius: var(--ok-radius);
+}
+.post-cover::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.35));
+  border-top-left-radius: var(--ok-radius); border-top-right-radius: var(--ok-radius);
+}
+.post-cover-content { position: relative; z-index: 2; padding: 2rem; }
+.post-cover-title { font-size: clamp(1.25rem, 1rem + 1.4vw, 2.25rem); font-weight: 700; text-shadow: 1px 1px 3px rgba(0,0,0,.5); }
+.post-cover-meta { font-size: .9rem; font-weight: 400; opacity: .9; }
+.post-cover-meta a { color: #fff; text-decoration: underline; }
+
+/* ===== Widgets ===== */
+.widget { background: transparent; border: 0; box-shadow: none; padding: 0; }
+.widget-title { font-size: 1.25rem; border-bottom: 2px solid var(--ok-color-primary); margin-bottom: 1rem; padding-bottom: .5rem; }
+.widget ul { list-style: none; padding-left: 0; }
+.widget ul li { margin-bottom: .5rem; }
+.widget ul li a { color: var(--ok-color-text); }
+.widget ul li a:hover { color: var(--ok-color-primary); }
+
+/* ===== Comments ===== */
+.comments-area { padding: 2rem; margin-top: 1rem; }
+.comments-area ul { list-style: none; padding: 0; }
+.comments-area li.comment { padding-bottom: 1.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid #e9ecef; }
+.comments-area li.comment:last-child { padding-bottom: 0; margin-bottom: 0; border-bottom: 0; }
+.comment-author { font-size: 1.05rem; font-weight: 700; }
+.comment-respond { margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #e9ecef; }
+.comment-reply-title { font-size: 1.375rem; font-weight: 700; }
+
+/* ===== Footer ===== */
+.site-footer {
+  background-color: var(--ok-footer-bg);
+  color: var(--ok-footer-text);
+  padding: 2.5rem 0;
+  margin-top: 3rem;
+}
+.site-footer a { color: var(--ok-footer-text); }
+
+/* ===== Utilities ===== */
+.main-navigation .nav-link .bi { margin-right: 8px; vertical-align: middle; }
+.ok-text-muted { color: var(--ok-color-muted) !important; }
+.ok-link-underline { text-decoration: underline; }
+.ok-border { border: 1px solid var(--ok-color-border) !important; }
+.ok-rounded { border-radius: var(--ok-radius) !important; }
+.ok-shadow { box-shadow: var(--ok-shadow-md) !important; }
+
+.btn-primary { background-color: var(--ok-color-primary); border-color: var(--ok-color-primary); }
+.btn-primary:hover, .btn-primary:focus { background-color: var(--ok-color-primary-600); border-color: var(--ok-color-primary-600); }
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--ok-color-primary);
+  box-shadow: 0 0 0 .2rem rgba(13,110,253,.15);
+}
+
+/* ==========================================================================
+   Burger Menu (exact behavior as landing)
+   ========================================================================= */
+
+/* Button (three bars) */
+.navbar-toggler {
+  border: none;
+  padding: 0;
+  width: 24px;
+  height: 20px;
+  position: relative;
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.navbar-toggler:focus { box-shadow: none; }
+
+.toggler-icon {
+  display: block;
+  position: absolute;
+  height: 3px;
+  width: 100%;
+  background: #fff;
+  border-radius: 3px;
+  left: 0;
+  transition: all .25s ease-in-out;
+}
+.toggler-icon.top-bar { top: 0px; }
+.toggler-icon.middle-bar { top: 8px; }
+.toggler-icon.bottom-bar { top: 16px; }
+
+/* Turn into X when open (controlled via aria-expanded) */
+.navbar-toggler[aria-expanded="true"] .top-bar { transform: rotate(45deg); top: 8px; }
+.navbar-toggler[aria-expanded="true"] .middle-bar { opacity: 0; }
+.navbar-toggler[aria-expanded="true"] .bottom-bar { transform: rotate(-45deg); top: 8px; }
+
+/* Mobile collapsed panel (under header, with blur) */
+@media (max-width: 991.98px) {
+  .site-header { position: sticky; z-index: 1030; }
+
+  #mainNav.collapse.show,
+  #mainNav.collapsing {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: rgba(17, 77, 77, 0.95);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    padding: 1rem;
+    border-bottom-left-radius: 1rem;
+    border-bottom-right-radius: 1rem;
+    box-shadow: 0 8px 16px rgba(0,0,0,.15);
+  }
+
+  /* Column layout + remove desktop fixed height */
+  #mainNav .nav { flex-direction: column !important; }
+  .main-navigation .nav-link {
+    height: auto;                   /* override desktop height */
+    width: 100%;
+    text-align: center;
+    color: #fff !important;
+    font-size: 1.1rem;
+    padding: .5rem 1rem !important;
+    border-radius: .5rem;
+    transition: background-color .2s ease;
+  }
+  .main-navigation .nav-link:hover { background-color: rgba(255, 255, 255, 0.1); }
+}
+
+/* ==========================================================================
+   Dark Mode
+   ========================================================================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ok-color-bg: #121212;
+    --ok-color-text: #e9ecef;
+    --ok-color-muted: #adb5bd;
+    --ok-card-bg: #1b1f22;
+    --ok-color-border: #2a2f33;
+    --ok-footer-bg: #0f1113;
+    --ok-footer-text: #e9ecef;
+    --ok-shadow-md: 0 0.5rem 1rem rgba(0,0,0,.35);
+  }
+  .site-header { background-color: #114D4D; }
+  a { color: #dee2e6; }
+  a:hover { color: var(--ok-color-primary); }
+}
+
+/* ==========================================================================
+   Print
+   ========================================================================= */
+@media print {
+  .site-header, .site-footer, nav, .btn, .form-control, .form-select { display: none !important; }
+  main { padding: 0 !important; }
+  .blog-post, .comments-area { box-shadow: none !important; border: 1px solid #ccc; }
+}

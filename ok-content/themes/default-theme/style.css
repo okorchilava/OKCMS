@@ -1,0 +1,233 @@
+/*
+Theme Name: OK Default Theme
+Author: OK ძრავის დეველოპერი
+Description: დახვეწილი და თანამედროვე საწყისი თემა OK ძრავისთვის.
+Version: 2.11
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@400;700&display=swap');
+
+/* --- Sticky Footer --- */
+html { height: 100%; }
+body { display: flex; flex-direction: column; min-height: 100%; }
+main.container { flex-grow: 1; }
+/* --- /Sticky Footer --- */
+
+body {
+    font-family: 'Noto Sans Georgian', sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
+    font-weight: 400;
+}
+
+h1, h2, h3, h4, h5, h6, .display-5, .blog-post-title a, .site-title {
+    font-family: 'Noto Sans Georgian', sans-serif;
+    font-weight: 700;
+}
+
+/* Header-ის სტილი */
+.site-header {
+    background-color: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0.75rem 0;
+    z-index: 1020;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+.site-title {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    margin: 0;
+}
+.site-title a {
+    text-decoration: none;
+    color: #212529;
+}
+.site-description {
+    color: #6c757d;
+    font-size: 0.85rem;
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0;
+}
+
+/* პოსტის სტილი */
+.blog-post {
+    background-color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.05);
+}
+.blog-post-content {
+    padding: 2.5rem;
+}
+.blog-post-title {
+    font-size: 2.2rem;
+    margin-bottom: 0.25rem;
+}
+.blog-post-title a {
+    text-decoration: none;
+}
+.blog-post-meta {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+/* Sidebar-ის ვიჯეტები */
+.widget {
+    background-color: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+.widget-title {
+    font-size: 1.25rem;
+    border-bottom: 2px solid #0d6efd;
+    margin-bottom: 1rem;
+    padding-bottom: .5rem;
+}
+.widget ul {
+    list-style: none;
+    padding-left: 0;
+}
+.widget ul li {
+    margin-bottom: 0.5rem;
+}
+.widget ul li a {
+    text-decoration: none;
+    color: #212529;
+}
+.widget ul li a:hover {
+    color: #0d6efd;
+}
+
+/* Footer-ის სტილი */
+.site-footer {
+    background-color: #343a40;
+    color: #fff;
+    padding: 2.5rem 0;
+    margin-top: 3rem;
+}
+.site-footer a {
+    color: #fff;
+}
+
+/* პოსტის სტილი */
+.blog-post {
+    background-color: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.05);
+    display: flex; /* დავამატეთ flex, რათა შიდა სვეტები სწორად იმართოს */
+}
+
+/* ახალი კლასი სურათიანი ბარათებისთვის */
+.blog-post.has-thumbnail {
+    height: 220px; /* ვანიჭებთ ფიქსირებულ სიმაღლეს */
+    overflow: hidden; /* ვმალავთ ყველაფერს, რაც ზომაში არ ჩაეტევა */
+}
+
+.blog-post-content {
+    padding: 1.5rem; /* ოდნავ შევამცირეთ პადინგი */
+}
+
+/* სათაურის ზომა შემცირდა */
+.blog-post-title {
+    font-size: 1.2rem;
+    margin-bottom: 0.25rem;
+}
+.blog-post-title a {
+    text-decoration: none;
+}
+.blog-post-meta {
+    color: #6c757d;
+    font-size: 0.8rem; /* ესეც ოდნავ შევამცირეთ */
+}
+
+/* --- Post Cover (Hero) სტილები --- */
+.post-cover {
+    position: relative;
+    height: 30vh;
+    background-size: cover;
+    background-position: center;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+.post-cover::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-top-left-radius: 0.5rem;
+    border-top-right-radius: 0.5rem;
+}
+.post-cover-content {
+    position: relative;
+    z-index: 2;
+    padding: 2rem;
+}
+.post-cover-title {
+    font-size: 2rem;
+    font-weight: 700;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+}
+.post-cover-meta {
+    font-size: 0.8rem;
+    font-weight: 400;
+}
+.post-cover-meta a {
+    color: #fff;
+    text-decoration: underline;
+}
+/* --- კომენტარების სექცია --- */
+.comments-area {
+    background-color: #fff;
+    padding: 2.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.05);
+    margin-top: 1rem;
+}
+
+.comments-area ul {
+    list-style: none;
+    padding: 0;
+}
+
+.comments-area li.comment {
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.comments-area li.comment:last-child {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: none;
+}
+
+.comment-author {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.comment-respond {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.comment-reply-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* --- მენიუს იკონკების სტილი --- */
+.main-navigation .nav-link .bi {
+    margin-right: 8px; /* დაშორება იკონკასა და ტექსტს შორის */
+    vertical-align: middle; /* ვერტიკალური გასწორება */
+}
