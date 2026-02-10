@@ -251,7 +251,7 @@ if (!is_file($theme_functions)) {
 }
 require_once $theme_functions;
 
-do_ok_action('init');
+do_ok_action('init');[
 
     'functions-widgets',
     'uploader',
