@@ -38,6 +38,25 @@ function ok_detect_plugin_entry(string $dir): string {
     throw new RuntimeException('Plugin entry file not found for: ' . $dirname);
 }
 
+
+function ok_plugin_allowlist(): array {
+    $allow = get_ok_option('plugin_allowlist', []);
+    if (!is_array($allow)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($allow as $entry) {
+        try {
+            $normalized[] = ok_normalize_plugin_entry((string)$entry);
+        } catch (Throwable $e) {
+            ok_log_debug('Invalid allowlist entry ignored.', ['entry' => $entry], 'WARNING');
+        }
+    }
+
+    return array_values(array_unique($normalized));
+}
+
 function ok_core_load_plugins() {
     $plugins_root = rtrim((string)$_SERVER['DOCUMENT_ROOT'], '/') . '/ok-content/plugins/';
     if (!is_dir($plugins_root)) {
@@ -64,8 +83,14 @@ function ok_core_load_plugins() {
         throw new RuntimeException('Plugin root realpath failed.');
     }
 
+    $allowlist = ok_plugin_allowlist();
+
     foreach ($active_plugins as $plugin_file) {
         $normalized = ok_normalize_plugin_entry((string)$plugin_file);
+        if (!empty($allowlist) && !in_array($normalized, $allowlist, true)) {
+            throw new RuntimeException('Plugin is not in allowlist: ' . $normalized);
+        }
+
         $full_path = $plugins_root . $normalized;
         $real_full = realpath($full_path);
 

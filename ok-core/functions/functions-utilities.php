@@ -101,6 +101,8 @@ if (!function_exists('ok_log_debug')) {
 
         $safeMessage = str_replace(["\r", "\n"], ['\\r', '\\n'], $message);
         $line = '[' . date('Y-m-d H:i:s') . "] [{$safeLevel}] " . $safeMessage;
+        $context['request_id'] = defined('OK_REQUEST_ID') ? OK_REQUEST_ID : 'n/a';
+
         if (!empty($context)) {
             $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if ($json !== false) {

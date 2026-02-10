@@ -94,6 +94,35 @@ function check_admin_referer($action = -1, string $query_arg = '_ok_nonce'): boo
     return false;
 }
 
+
+function ok_nonce_mark_used(string $nonce): void {
+    if (!isset($_SESSION['_ok_used_nonces']) || !is_array($_SESSION['_ok_used_nonces'])) {
+        $_SESSION['_ok_used_nonces'] = [];
+    }
+
+    $_SESSION['_ok_used_nonces'][$nonce] = time();
+
+    if (count($_SESSION['_ok_used_nonces']) > 200) {
+        asort($_SESSION['_ok_used_nonces']);
+        $_SESSION['_ok_used_nonces'] = array_slice($_SESSION['_ok_used_nonces'], -200, null, true);
+    }
+}
+
+function ok_nonce_is_used(string $nonce): bool {
+    if (!isset($_SESSION['_ok_used_nonces']) || !is_array($_SESSION['_ok_used_nonces'])) {
+        return false;
+    }
+
+    $now = time();
+    foreach ($_SESSION['_ok_used_nonces'] as $key => $ts) {
+        if (!is_int($ts) || ($now - $ts) > 86400) {
+            unset($_SESSION['_ok_used_nonces'][$key]);
+        }
+    }
+
+    return isset($_SESSION['_ok_used_nonces'][$nonce]);
+}
+
 function ok_sec_check($action = -1): void {
     if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
         ok_die('უსაფრთხოების შეცდომა', 'არასწორი მოთხოვნის მეთოდი.');
@@ -103,13 +132,20 @@ function ok_sec_check($action = -1): void {
         ok_die('უსაფრთხოების შეცდომა', 'ფორმას აკლია დამცავი კოდი (Nonce missing).');
     }
 
-    if (!ok_verify_nonce($_POST['_ok_nonce'], $action)) {
+    $nonce = (string)$_POST['_ok_nonce'];
+    if (!ok_verify_nonce($nonce, $action)) {
         ok_die('ვადის გასვლა', 'უსაფრთხოების კოდს ვადა გაუვიდა. გთხოვთ, გადატვირთოთ გვერდი და სცადოთ თავიდან.');
+    }
+
+    if (ok_nonce_is_used($nonce)) {
+        ok_die('უსაფრთხოების შეცდომა', 'უსაფრთხოების კოდი უკვე გამოყენებულია.');
     }
 
     if (!ok_verify_same_origin()) {
         ok_die('უსაფრთხოების შეცდომა', 'მოთხოვნა ბლოკირებულია (Origin/Referer mismatch).');
     }
+
+    ok_nonce_mark_used($nonce);
 }
 
 function ok_die(string $title, string $message): void {

@@ -284,6 +284,31 @@ class OkNotificationManager
         return $proto . '://' . $host . '/' . ltrim($link, '/');
     }
 
+
+    public static function enforcePollRateLimit(): void
+    {
+        $now = time();
+        if (!isset($_SESSION['_ok_notif_poll_times']) || !is_array($_SESSION['_ok_notif_poll_times'])) {
+            $_SESSION['_ok_notif_poll_times'] = [];
+        }
+
+        $_SESSION['_ok_notif_poll_times'] = array_values(array_filter(
+            $_SESSION['_ok_notif_poll_times'],
+            static function ($ts) use ($now) {
+                return is_int($ts) && ($now - $ts) <= 60;
+            }
+        ));
+
+        if (count($_SESSION['_ok_notif_poll_times']) >= 60) {
+            http_response_code(429);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['error' => 'Too Many Requests'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        $_SESSION['_ok_notif_poll_times'][] = $now;
+    }
+
     public static function renderScript(): void
     {
         if (!isset($_SESSION['user_id'])) {
@@ -346,6 +371,8 @@ if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'get_unread_count') 
         echo json_encode(['error' => 'Forbidden']);
         exit;
     }
+
+    OkNotificationManager::enforcePollRateLimit();
 
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Pragma: no-cache');

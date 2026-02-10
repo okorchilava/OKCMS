@@ -28,6 +28,11 @@ define('OK_VERSION', '1.6.0');
 define('OK_START_TIME', microtime(true));
 define('OK_SANDBOX_MODE', true);
 
+if (!defined('OK_REQUEST_ID')) {
+    $rid = $_SERVER['HTTP_X_REQUEST_ID'] ?? bin2hex(random_bytes(8));
+    define('OK_REQUEST_ID', preg_replace('/[^a-zA-Z0-9\-_.]/', '', (string)$rid));
+}
+
 $OK_CORE = __DIR__;
 $OK_ROOT = dirname(__DIR__);
 $OK_DEBUG_LOG = $OK_ROOT . '/ok-content/debug.log';
@@ -36,6 +41,8 @@ function ok_loader_log(string $message, array $context = [], string $level = 'IN
     global $OK_DEBUG_LOG;
 
     $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
+    $context['request_id'] = defined('OK_REQUEST_ID') ? OK_REQUEST_ID : 'n/a';
+
     if (!empty($context)) {
         $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         if ($json !== false) {
@@ -56,6 +63,13 @@ if (!headers_sent()) {
     header('X-Content-Type-Options: nosniff');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header('X-XSS-Protection: 0');
+    header("Permissions-Policy: geolocation=(), microphone=(), camera=()");
+    header("Cross-Origin-Opener-Policy: same-origin");
+    header("Cross-Origin-Resource-Policy: same-origin");
+    header("Content-Security-Policy: default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self';");
+    if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (!empty($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443)) {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
 $config_path = $OK_ROOT . '/ok-config.php';
