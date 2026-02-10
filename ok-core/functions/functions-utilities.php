@@ -81,6 +81,71 @@ if (!function_exists('ok_send_json_error')) {
 }
 
 /* --------------------------------------------------------------------------
+ * 1.1 Debug logging & sandbox safety
+ * -------------------------------------------------------------------------- */
+
+if (!function_exists('ok_get_debug_log_path')) {
+    function ok_get_debug_log_path(): string
+    {
+        static $path = null;
+        if ($path !== null) {
+            return $path;
+        }
+
+        $root = dirname(dirname(__DIR__));
+        $path = $root . '/ok-content/debug.log';
+        return $path;
+    }
+}
+
+if (!function_exists('ok_log_debug')) {
+    function ok_log_debug(string $message, array $context = [], string $level = 'INFO'): void
+    {
+        $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
+        if (!empty($context)) {
+            $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json !== false) {
+                $line .= ' | ' . $json;
+            }
+        }
+        $line .= PHP_EOL;
+
+        @file_put_contents(ok_get_debug_log_path(), $line, FILE_APPEND | LOCK_EX);
+    }
+}
+
+if (!function_exists('ok_is_sandbox_mode')) {
+    function ok_is_sandbox_mode(): bool
+    {
+        if (defined('OK_SANDBOX_MODE')) {
+            return OK_SANDBOX_MODE === true;
+        }
+
+        if (function_exists('get_ok_option')) {
+            return (bool)get_ok_option('sandbox_mode', false);
+        }
+
+        return false;
+    }
+}
+
+if (!function_exists('ok_run_sandboxed')) {
+    function ok_run_sandboxed(callable $callback, $fallback = null, array $context = [])
+    {
+        try {
+            return $callback();
+        } catch (Throwable $e) {
+            ok_log_debug('Sandbox prevented crash: ' . $e->getMessage(), $context + [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], 'ERROR');
+            return $fallback;
+        }
+    }
+}
+
+/* --------------------------------------------------------------------------
  * 2. Date & Time (Settings-Driven & Multilingual)
  * -------------------------------------------------------------------------- */
 
