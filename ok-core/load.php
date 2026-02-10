@@ -60,15 +60,29 @@ if (!headers_sent()) {
 
 $config_path = $OK_ROOT . '/ok-config.php';
 if (!is_file($config_path)) {
-    throw new RuntimeException('ok-config.php is missing.');
+    ok_loader_log('ok-config.php is missing.', ['config_path' => $config_path], 'ERROR');
+
+    $current_script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($current_script !== 'install.php') {
+        if (!headers_sent()) {
+            header('Location: /ok-admin/install.php', true, 302);
+        } else {
+            echo '<script>window.location.href="/ok-admin/install.php";</script>';
+        }
+        exit;
+    }
+} else {
+    require_once $config_path;
 }
-require_once $config_path;
 
 if (!defined('NONCE_KEY') || !defined('NONCE_SALT') || NONCE_KEY === '' || NONCE_SALT === '') {
-    throw new RuntimeException('NONCE_KEY/NONCE_SALT must be configured.');
+    $current_script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($current_script !== 'install.php') {
+        throw new RuntimeException('NONCE_KEY/NONCE_SALT must be configured.');
+    }
 }
 
-if (OK_DEBUG === true) {
+if (defined('OK_DEBUG') && OK_DEBUG === true) {
     ini_set('display_errors', '1');
     ini_set('display_startup_errors', '1');
 } else {
