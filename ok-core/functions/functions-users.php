@@ -28,7 +28,7 @@ function ok_get_current_user() {
         return $GLOBALS['ok_current_user_cache'];
     }
 
-    $user = $ok_db->get_row("SELECT * FROM ok_users WHERE id = $user_id");
+    $user = $ok_db->get_row("SELECT * FROM ok_users WHERE id = ? LIMIT 1", [$user_id]);
     
     if ($user) {
         $GLOBALS['ok_current_user_cache'] = $user;

@@ -13,6 +13,39 @@ add_ok_action('admin_menu', function() {
     add_submenu_page('ok-settings', 'ფუნქციონალი', 'ფუნქციონალი', 'manage_options', 'ok-settings-functional', 'ok_render_settings');
 });
 
+
+function ok_settings_update_config_nonce_keys(string $nonceKey, string $nonceSalt): bool {
+    $configPath = dirname(__DIR__) . '/ok-config.php';
+    if (!is_file($configPath) || !is_readable($configPath) || !is_writable($configPath)) {
+        return false;
+    }
+
+    $config = file_get_contents($configPath);
+    if ($config === false) {
+        return false;
+    }
+
+    $nonceKeyExport = var_export($nonceKey, true);
+    $nonceSaltExport = var_export($nonceSalt, true);
+
+    $keyPattern = '/define\s*\(\s*["\']NONCE_KEY["\']\s*,\s*.*?\)\s*;/';
+    $saltPattern = '/define\s*\(\s*["\']NONCE_SALT["\']\s*,\s*.*?\)\s*;/';
+
+    if (preg_match($keyPattern, $config)) {
+        $config = preg_replace($keyPattern, "define('NONCE_KEY', " . $nonceKeyExport . ");", $config, 1);
+    } else {
+        $config .= "\n" . "define('NONCE_KEY', " . $nonceKeyExport . ");";
+    }
+
+    if (preg_match($saltPattern, $config)) {
+        $config = preg_replace($saltPattern, "define('NONCE_SALT', " . $nonceSaltExport . ");", $config, 1);
+    } else {
+        $config .= "\n" . "define('NONCE_SALT', " . $nonceSaltExport . ");";
+    }
+
+    return file_put_contents($configPath, $config) !== false;
+}
+
 function ok_render_settings() {
     global $ok_db;
 
@@ -26,6 +59,7 @@ function ok_render_settings() {
 
     // --- SAVE ---
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_settings'])) {
+        ok_sec_check('ok_settings_save');
         
         $notif_message = ""; // ცვლადი შეტყობინებისთვის
 
@@ -72,8 +106,16 @@ function ok_render_settings() {
         }
 
         if ($active_tab === 'security') {
-            update_ok_option('nonce_key', trim($_POST['nonce_key']));
-            update_ok_option('nonce_salt', trim($_POST['nonce_salt']));
+            $new_nonce_key = trim((string)($_POST['nonce_key'] ?? ''));
+            $new_nonce_salt = trim((string)($_POST['nonce_salt'] ?? ''));
+
+            update_ok_option('nonce_key', $new_nonce_key);
+            update_ok_option('nonce_salt', $new_nonce_salt);
+
+            $cfg_ok = ok_settings_update_config_nonce_keys($new_nonce_key, $new_nonce_salt);
+            if (!$cfg_ok) {
+                echo '<div class="alert alert-warning shadow-sm border-0 mb-4"><i class="bi bi-exclamation-triangle-fill me-2"></i> ok-config.php ვერ განახლდა ავტომატურად. შეამოწმეთ ფაილის write უფლება.</div>';
+            }
 
             $notif_message = "უსაფრთხოების გასაღებები (Keys) შეიცვალა.";
         }
@@ -88,6 +130,32 @@ function ok_render_settings() {
             $dev_mode = isset($_POST['dev_mode']) ? 1 : 0;
             update_ok_option('dev_mode', $dev_mode);
 
+            // Notification Mail
+            $mail_notifications_enabled = isset($_POST['mail_notifications_enabled']) ? 1 : 0;
+            update_ok_option('mail_notifications_enabled', $mail_notifications_enabled);
+
+            // Notification polling rate limit (requests/min per session)
+            $poll_limit = isset($_POST['notif_poll_rate_limit']) ? (int)$_POST['notif_poll_rate_limit'] : 60;
+            if ($poll_limit < 10) $poll_limit = 10;
+            if ($poll_limit > 300) $poll_limit = 300;
+            update_ok_option('notif_poll_rate_limit', $poll_limit);
+
+            // Plugin allowlist (one plugin entry per line: slug/file.php)
+            $allowlist_raw = trim((string)($_POST['plugin_allowlist'] ?? ''));
+            $allowlist = [];
+            if ($allowlist_raw !== '') {
+                $lines = preg_split('/\\r\\n|\\r|\\n/', $allowlist_raw);
+                if (is_array($lines)) {
+                    foreach ($lines as $line) {
+                        $entry = trim($line);
+                        if ($entry !== '' && preg_match('/^[a-zA-Z0-9_\/-]+\.php$/', $entry) && strpos($entry, '..') === false) {
+                            $allowlist[] = $entry;
+                        }
+                    }
+                }
+            }
+            update_ok_option('plugin_allowlist', array_values(array_unique($allowlist)));
+
             $notif_message = "ფუნქციონალური პარამეტრები შეიცვალა.";
         }
 
@@ -95,7 +163,7 @@ function ok_render_settings() {
         if (!empty($notif_message) && function_exists('ok_add_notification')) {
             // ლინკი მივუთითოთ იმ გვერდზე, სადაც ვიმყოფებით
             $current_url = "index.php?page=" . htmlspecialchars($current_page);
-            ok_add_notification($notif_message, 'info', $current_url);
+            ok_add_notification($notif_message, 'info', [], $current_url);
         }
 
         echo '<div class="alert alert-success shadow-sm border-0 mb-4 fade show"><i class="bi bi-check-circle-fill me-2"></i> პარამეტრები შენახულია.</div>';
@@ -133,6 +201,13 @@ function ok_render_settings() {
     // 🛑 Functional Data
     $enable_global_sidebar = (int)get_ok_option('enable_global_sidebar', 1);
     $dev_mode              = (int)get_ok_option('dev_mode', 0);
+    $mail_notifications_enabled = (int)get_ok_option('mail_notifications_enabled', 0);
+    $notif_poll_rate_limit = (int)get_ok_option('notif_poll_rate_limit', 60);
+    if ($notif_poll_rate_limit < 10) $notif_poll_rate_limit = 10;
+    if ($notif_poll_rate_limit > 300) $notif_poll_rate_limit = 300;
+    $plugin_allowlist_arr = get_ok_option('plugin_allowlist', []);
+    if (!is_array($plugin_allowlist_arr)) $plugin_allowlist_arr = [];
+    $plugin_allowlist_text = implode("\n", $plugin_allowlist_arr);
 
     // Helpers
     $timezones = DateTimeZone::listIdentifiers();
@@ -179,6 +254,7 @@ function ok_render_settings() {
     </div>
 
     <form method="post" id="settings_form" class="pb-5">
+        <?php ok_nonce_field('ok_settings_save'); ?>
         
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body p-2">
@@ -428,6 +504,30 @@ function ok_render_settings() {
                                 <div class="form-check form-switch">
                                     <input class="form-check-input fs-4" type="checkbox" name="enable_global_sidebar" id="enable_global_sidebar" value="1" <?php echo ($enable_global_sidebar == 1) ? 'checked' : ''; ?>>
                                 </div>
+                            </div>
+
+
+                            <div class="d-flex align-items-center justify-content-between p-3 border rounded bg-light mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-1"><i class="bi bi-envelope-check me-2"></i>ელფოსტის ნოთიფიკაციები</h6>
+                                    <small class="text-muted">ჩართავს სისტემური ნოთიფიკაციების ელფოსტით გაგზავნას.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input fs-4" type="checkbox" name="mail_notifications_enabled" id="mail_notifications_enabled" value="1" <?php echo ($mail_notifications_enabled == 1) ? 'checked' : ''; ?>>
+                                </div>
+                            </div>
+
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <label class="form-label fw-bold"><i class="bi bi-speedometer2 me-2"></i>Notification Poll Rate Limit (10-300 / წუთში)</label>
+                                <input type="number" min="10" max="300" class="form-control" name="notif_poll_rate_limit" value="<?php echo (int)$notif_poll_rate_limit; ?>">
+                                <small class="text-muted">გამოიყენება unread endpoint-ზე სესიის მიხედვით.</small>
+                            </div>
+
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <label class="form-label fw-bold"><i class="bi bi-shield-lock me-2"></i>Plugin Allowlist</label>
+                                <textarea class="form-control font-monospace" rows="6" name="plugin_allowlist" placeholder="ok-quiz/index.php
+ok-social/ok-social.php"><?php echo htmlspecialchars($plugin_allowlist_text, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                                <small class="text-muted">თითო plugin ფაილი ახალ ხაზზე. თუ ცარიელია, allowlist enforcement გამორთულია.</small>
                             </div>
 
                             <div class="d-flex align-items-center justify-content-between p-3 border rounded border-warning bg-warning bg-opacity-10 mb-3">

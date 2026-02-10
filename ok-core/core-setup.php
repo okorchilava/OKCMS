@@ -17,7 +17,7 @@ if (!defined('OK_LOADED')) {
  */
 
 // რთავს shortcode-ების დამუშავებას პოსტის კონტენტში (განახლებული სახელი!)
-add_ok_filter('the_content', 'do_shortcode', 11);
+add_ok_filter('the_content', 'do_ok_shortcode', 11);
 
 /**
  * --------------------------------------------------------------------------
