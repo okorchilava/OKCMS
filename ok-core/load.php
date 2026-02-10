@@ -89,20 +89,11 @@ if (!is_file($config_path)) {
     require_once $config_path;
 }
 
-if (!defined('NONCE_KEY') || NONCE_KEY === '') {
-    $fallback_nonce_key = (string)(defined('AUTH_KEY') ? AUTH_KEY : '');
-    if ($fallback_nonce_key === '') {
-        $fallback_nonce_key = hash('sha256', $OK_ROOT . '|nonce-key|' . PHP_VERSION);
+if (!defined('NONCE_KEY') || !defined('NONCE_SALT') || NONCE_KEY === '' || NONCE_SALT === '') {
+    $current_script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+    if ($current_script !== 'install.php') {
+        throw new RuntimeException('NONCE_KEY/NONCE_SALT must be configured.');
     }
-    define('NONCE_KEY', $fallback_nonce_key);
-}
-
-if (!defined('NONCE_SALT') || NONCE_SALT === '') {
-    $fallback_nonce_salt = (string)(defined('AUTH_SALT') ? AUTH_SALT : '');
-    if ($fallback_nonce_salt === '') {
-        $fallback_nonce_salt = hash('sha256', $OK_ROOT . '|nonce-salt|' . php_uname('n'));
-    }
-    define('NONCE_SALT', $fallback_nonce_salt);
 }
 
 if (defined('OK_DEBUG') && OK_DEBUG === true) {
