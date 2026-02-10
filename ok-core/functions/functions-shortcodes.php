@@ -31,6 +31,10 @@ function do_ok_shortcode($content) {
         return '';
     }
 
+    if (!is_string($content)) {
+        throw new InvalidArgumentException('Shortcode content must be string.');
+    }
+
     $content = str_replace(['&#91;', '&#93;'], ['[', ']'], (string)$content);
     $content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
     $content = str_replace(["\xC2\xA0", '&nbsp;'], ' ', $content);
@@ -48,6 +52,10 @@ function do_ok_shortcode($content) {
             $output = ok_run_sandboxed(function () use ($callback, $atts, $inner, $tag) {
                 return call_user_func($callback, $atts, $inner, $tag);
             }, ['shortcode' => $tag, 'atts' => $atts]);
+
+            if (!is_scalar($output) && $output !== null) {
+                throw new RuntimeException('Shortcode output must be scalar/null. Tag: ' . $tag);
+            }
 
             $content = str_replace($full, (string)$output, $content);
         }

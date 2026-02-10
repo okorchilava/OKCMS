@@ -94,7 +94,13 @@ if (!function_exists('ok_get_debug_log_path')) {
 if (!function_exists('ok_log_debug')) {
     function ok_log_debug(string $message, array $context = [], string $level = 'INFO'): void
     {
-        $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
+        $safeLevel = strtoupper(preg_replace('/[^A-Z]/', '', $level));
+        if ($safeLevel === '') {
+            $safeLevel = 'INFO';
+        }
+
+        $safeMessage = str_replace(["\r", "\n"], ['\\r', '\\n'], $message);
+        $line = '[' . date('Y-m-d H:i:s') . "] [{$safeLevel}] " . $safeMessage;
         if (!empty($context)) {
             $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             if ($json !== false) {
@@ -103,7 +109,11 @@ if (!function_exists('ok_log_debug')) {
         }
         $line .= PHP_EOL;
 
-        @file_put_contents(ok_get_debug_log_path(), $line, FILE_APPEND | LOCK_EX);
+        $path = ok_get_debug_log_path();
+        file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
+        if (is_file($path)) {
+            @chmod($path, 0600);
+        }
     }
 }
 

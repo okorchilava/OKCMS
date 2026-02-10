@@ -47,11 +47,23 @@ ini_set('log_errors', '1');
 ini_set('error_log', $OK_DEBUG_LOG);
 error_reporting(E_ALL);
 
+
+if (!headers_sent()) {
+    header('X-Frame-Options: SAMEORIGIN');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('X-XSS-Protection: 0');
+}
+
 $config_path = $OK_ROOT . '/ok-config.php';
 if (!is_file($config_path)) {
     throw new RuntimeException('ok-config.php is missing.');
 }
 require_once $config_path;
+
+if (!defined('NONCE_KEY') || !defined('NONCE_SALT') || NONCE_KEY === '' || NONCE_SALT === '') {
+    throw new RuntimeException('NONCE_KEY/NONCE_SALT must be configured.');
+}
 
 if (OK_DEBUG === true) {
     ini_set('display_errors', '1');
@@ -98,6 +110,10 @@ $is_https =
     (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
     (!empty($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) ||
     (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+ini_set('session.use_only_cookies', '1');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.cookie_httponly', '1');
 
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $opts = [

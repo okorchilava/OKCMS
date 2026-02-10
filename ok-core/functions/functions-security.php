@@ -13,6 +13,10 @@ if ( ! defined( 'OK_LOADED' ) ) {
     exit('Access Denied.');
 }
 
+if (!defined('NONCE_KEY') || !defined('NONCE_SALT') || NONCE_KEY === '' || NONCE_SALT === '') {
+    throw new RuntimeException('NONCE_KEY/NONCE_SALT are required.');
+}
+
 function ok_create_nonce($action = -1): string {
     $user_id = $_SESSION['user_id'] ?? 0;
     $token   = $_SESSION['token'] ?? '';
@@ -27,7 +31,7 @@ function ok_create_nonce($action = -1): string {
 
 function ok_verify_nonce($nonce, $action = -1) {
     $nonce = trim((string)$nonce);
-    if ($nonce === '' || strlen($nonce) < 10 || strlen($nonce) > 64) {
+    if ($nonce === '' || strlen($nonce) !== 10 || !preg_match('/^[a-f0-9]+$/', $nonce)) {
         return false;
     }
 
@@ -91,6 +95,10 @@ function check_admin_referer($action = -1, string $query_arg = '_ok_nonce'): boo
 }
 
 function ok_sec_check($action = -1): void {
+    if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') {
+        ok_die('უსაფრთხოების შეცდომა', 'არასწორი მოთხოვნის მეთოდი.');
+    }
+
     if (!isset($_POST['_ok_nonce'])) {
         ok_die('უსაფრთხოების შეცდომა', 'ფორმას აკლია დამცავი კოდი (Nonce missing).');
     }
@@ -138,7 +146,12 @@ function ok_verify_same_origin(): bool {
     $origin = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
     if ($origin !== '') {
         $originHost = strtolower((string)parse_url($origin, PHP_URL_HOST));
-        if ($originHost !== '' && $originHost !== $host) {
+        $originPort = (int)parse_url($origin, PHP_URL_PORT);
+        $originHostPort = $originHost;
+        if ($originPort > 0) {
+            $originHostPort .= ':' . $originPort;
+        }
+        if ($originHost !== '' && $originHostPort !== $host && $originHost !== $host) {
             return false;
         }
     }
@@ -146,7 +159,12 @@ function ok_verify_same_origin(): bool {
     $referer = (string)($_SERVER['HTTP_REFERER'] ?? '');
     if ($referer !== '') {
         $refererHost = strtolower((string)parse_url($referer, PHP_URL_HOST));
-        if ($refererHost !== '' && $refererHost !== $host) {
+        $refererPort = (int)parse_url($referer, PHP_URL_PORT);
+        $refererHostPort = $refererHost;
+        if ($refererPort > 0) {
+            $refererHostPort .= ':' . $refererPort;
+        }
+        if ($refererHost !== '' && $refererHostPort !== $host && $refererHost !== $host) {
             return false;
         }
     }

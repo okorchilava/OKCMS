@@ -21,6 +21,9 @@ function ok_normalize_plugin_entry(string $plugin_file): string {
 
 function ok_detect_plugin_entry(string $dir): string {
     $dirname = basename($dir);
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $dirname)) {
+        throw new RuntimeException('Invalid plugin directory name: ' . $dirname);
+    }
 
     $primary = $dir . '/' . $dirname . '.php';
     if (is_file($primary)) {
@@ -66,7 +69,7 @@ function ok_core_load_plugins() {
         $full_path = $plugins_root . $normalized;
         $real_full = realpath($full_path);
 
-        if ($real_full === false || strpos($real_full, $real_root) !== 0 || !is_file($real_full)) {
+        if ($real_full === false || strpos($real_full, $real_root) !== 0 || !is_file($real_full) || !is_readable($real_full) || is_link($full_path)) {
             ok_log_debug('Plugin path validation failed.', ['plugin' => $normalized], 'ERROR');
             throw new RuntimeException('Plugin file invalid: ' . $normalized);
         }
@@ -76,7 +79,8 @@ function ok_core_load_plugins() {
             include_once $real_full;
             $buffer = ob_get_clean();
             if ($buffer !== '') {
-                ok_log_debug('Plugin printed output while loading.', ['plugin' => $normalized], 'WARNING');
+                ok_log_debug('Plugin printed output while loading.', ['plugin' => $normalized], 'ERROR');
+                throw new RuntimeException('Plugin produced output during bootstrap: ' . $normalized);
             }
         }, ['plugin' => $normalized]);
     }
