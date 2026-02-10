@@ -16,14 +16,16 @@ function ok_str_starts_with(string $haystack, string $needle): bool {
 }
 
 function ok_str_ends_with(string $haystack, string $needle): bool {
-    if ($needle === '') return true;
+    if ($needle === '') {
+        return true;
+    }
+
     $len = strlen($needle);
     return substr($haystack, -$len) === $needle;
 }
 
 define('OK_VERSION', '1.6.0');
 define('OK_START_TIME', microtime(true));
-
 define('OK_SANDBOX_MODE', true);
 
 $OK_CORE = __DIR__;
@@ -32,6 +34,7 @@ $OK_DEBUG_LOG = $OK_ROOT . '/ok-content/debug.log';
 
 function ok_loader_log(string $message, array $context = [], string $level = 'INFO'): void {
     global $OK_DEBUG_LOG;
+
     $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
     if (!empty($context)) {
         $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -39,6 +42,7 @@ function ok_loader_log(string $message, array $context = [], string $level = 'IN
             $line .= ' | ' . $json;
         }
     }
+
     $line .= PHP_EOL;
     file_put_contents($OK_DEBUG_LOG, $line, FILE_APPEND | LOCK_EX);
 }
@@ -46,7 +50,6 @@ function ok_loader_log(string $message, array $context = [], string $level = 'IN
 ini_set('log_errors', '1');
 ini_set('error_log', $OK_DEBUG_LOG);
 error_reporting(E_ALL);
-
 
 if (!headers_sent()) {
     header('X-Frame-Options: SAMEORIGIN');
@@ -80,6 +83,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
         'file' => $file,
         'line' => $line,
     ], 'ERROR');
+
     return true;
 });
 
@@ -95,6 +99,7 @@ set_exception_handler(function (Throwable $e) {
         http_response_code(500);
         header('Content-Type: text/html; charset=utf-8');
     }
+
     echo '<h1>System recovered in sandbox mode.</h1>';
     exit;
 });
@@ -118,12 +123,14 @@ ini_set('session.cookie_httponly', '1');
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $opts = [
         'cookie_httponly' => true,
-        'cookie_secure'   => $is_https,
+        'cookie_secure' => $is_https,
         'use_strict_mode' => true,
     ];
+
     if (PHP_VERSION_ID >= 70300) {
         $opts['cookie_samesite'] = 'Lax';
     }
+
     session_start($opts);
 }
 
@@ -132,7 +139,7 @@ require_once $OK_CORE . '/classes/class-hook-manager.php';
 require_once $OK_CORE . '/classes/class-ok-widget.php';
 
 global $ok_db, $ok_hooks;
-$ok_db    = OK_DB::instance();
+$ok_db = OK_DB::instance();
 $ok_hooks = HookManager::instance();
 
 $core_functions = [
@@ -164,6 +171,7 @@ foreach ($core_functions as $file) {
     if (!is_file($path)) {
         throw new RuntimeException('Missing core file: ' . $path);
     }
+
     require_once $path;
 }
 
@@ -193,6 +201,11 @@ if (!is_dir($ok_public_dir)) {
 }
 
 $public_files = glob($ok_public_dir . '*.php');
+if (!is_array($public_files)) {
+    $public_files = [];
+}
+sort($public_files);
+
 foreach ($public_files as $p_file) {
     require_once $p_file;
 }
