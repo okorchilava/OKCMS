@@ -1,0 +1,32 @@
+# 1. SECURITY: ფაილების სიის ნახვის აკრძალვა (Directory Listing)
+Options -Indexes
+
+# 2. SECURITY: კონფიგურაციის და სისტემური ფაილების დაცვა
+# კრძალავს წვდომას: .htaccess, .git, .env, ok-config.php, *.log და ა.შ.
+<FilesMatch "^\.|ok-config\.php|\.log$|\.ini$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # 3. Authorization Header-ის შენარჩუნება (API-სთვის)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # 4. HTTPS-ზე იძულებითი გადაყვანა (სურვილისამებრ, თუ სერვერზე SSL აყენია)
+    # RewriteCond %{HTTPS} off
+    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+    # 5. Front Controller
+    RewriteRule ^index\.php$ - [L]
+
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . index.php [L]
+</IfModule>
