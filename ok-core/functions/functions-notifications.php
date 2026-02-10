@@ -8,12 +8,41 @@ if (!defined('OK_LOADED')) {
 class OkNotificationManager
 {
     private const TABLE_NOTIF = 'ok_notifications';
+    private const TABLE_RECIPIENTS = 'ok_notification_recipients';
     private const TABLE_USERS = 'ok_users';
     private const TABLE_OPTIONS = 'ok_options';
     private const MAIL_TEMPLATE_PATH = '/ok-public/templates/mail/notification.html';
 
+    private static bool $schemaReady = false;
+
+    private static function ensureSchema(): void
+    {
+        if (self::$schemaReady) {
+            return;
+        }
+
+        global $ok_db;
+
+        $ok_db->query(
+            'CREATE TABLE IF NOT EXISTS ' . self::TABLE_RECIPIENTS . ' (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                notification_id BIGINT UNSIGNED NOT NULL,
+                user_id BIGINT UNSIGNED NOT NULL,
+                is_read TINYINT(1) NOT NULL DEFAULT 0,
+                read_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uniq_notification_user (notification_id, user_id),
+                KEY idx_user_read_created (user_id, is_read, created_at),
+                KEY idx_notification (notification_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+        );
+
+        self::$schemaReady = true;
+    }
+
     public static function add(string $message, string $type = 'info', $targets = [], string $link = '', $authorId = null): void
     {
+        self::ensureSchema();
         global $ok_db;
 
         $authorId = $authorId === null ? (int)($_SESSION['user_id'] ?? 0) : (int)$authorId;
@@ -26,7 +55,7 @@ class OkNotificationManager
 
         if ($authorId > 0) {
             $userRow = $ok_db->get_row(
-                "SELECT display_name, email, username FROM " . self::TABLE_USERS . " WHERE id = ? LIMIT 1",
+                'SELECT display_name, email, username FROM ' . self::TABLE_USERS . ' WHERE id = ? LIMIT 1',
                 [$authorId]
             );
 
@@ -59,17 +88,11 @@ class OkNotificationManager
         }
 
         if (!empty($otherRecps)) {
-            $ok_db->query(
-                "INSERT INTO " . self::TABLE_NOTIF . " (user_id, for_user_id, read_by_users, type, message, link, created_at) VALUES (?, ?, '', ?, ?, ?, NOW())",
-                [$authorId, implode(',', $otherRecps), $safeType, $msgForOthers, $safeLink]
-            );
+            self::insertNotificationForRecipients($authorId, $safeType, $msgForOthers, $safeLink, $otherRecps);
         }
 
         if (!empty($selfRecps)) {
-            $ok_db->query(
-                "INSERT INTO " . self::TABLE_NOTIF . " (user_id, for_user_id, read_by_users, type, message, link, created_at) VALUES (?, ?, '', ?, ?, ?, NOW())",
-                [$authorId, implode(',', $selfRecps), $safeType, $msgForSelf, $safeLink]
-            );
+            self::insertNotificationForRecipients($authorId, $safeType, $msgForSelf, $safeLink, $selfRecps);
         }
 
         $adminEmail = self::getOption('admin_email');
@@ -77,6 +100,28 @@ class OkNotificationManager
 
         if ($authorEmail !== '' && filter_var($authorEmail, FILTER_VALIDATE_EMAIL) && $authorEmail !== $adminEmail) {
             self::trySendEmail($msgForSelf, $safeLink, $authorEmail);
+        }
+    }
+
+    private static function insertNotificationForRecipients(int $authorId, string $type, string $message, string $link, array $recipientIds): void
+    {
+        global $ok_db;
+
+        $ok_db->query(
+            'INSERT INTO ' . self::TABLE_NOTIF . ' (user_id, for_user_id, read_by_users, type, message, link, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+            [$authorId, '', '', $type, $message, $link]
+        );
+
+        $notificationId = (int)$ok_db->last_insert_id();
+        if ($notificationId <= 0) {
+            throw new RuntimeException('Failed to create notification row.');
+        }
+
+        foreach ($recipientIds as $uid) {
+            $ok_db->query(
+                'INSERT INTO ' . self::TABLE_RECIPIENTS . ' (notification_id, user_id, is_read, created_at) VALUES (?, ?, 0, NOW())',
+                [$notificationId, (int)$uid]
+            );
         }
     }
 
@@ -116,13 +161,13 @@ class OkNotificationManager
         if ($link[0] !== '/') {
             $link = '/' . $link;
         }
+
         return preg_replace('/[^a-zA-Z0-9\-._~:\/?#\[\]@!$&\'"()*+,;=%]/', '', $link);
     }
 
     private static function parseMessage(string $raw, string $actor, bool $isSelf): string
     {
         $text = trim($raw);
-
         if ($isSelf) {
             $text = preg_replace('/([ა-ჰ]+)ა(\s|$)/u', '$1ეთ$2', $text);
         }
@@ -207,7 +252,7 @@ class OkNotificationManager
         global $ok_db;
 
         $res = [];
-        $admins = $ok_db->get_results("SELECT id FROM " . self::TABLE_USERS . " WHERE user_role = 'admin'");
+        $admins = $ok_db->get_results('SELECT id FROM ' . self::TABLE_USERS . " WHERE user_role = 'admin'");
         if ($admins) {
             foreach ($admins as $admin) {
                 $res[] = (int)$admin->id;
@@ -224,35 +269,38 @@ class OkNotificationManager
             }
         }
 
-        $res = array_values(array_unique($res));
-        return $res;
+        return array_values(array_unique($res));
     }
 
     public static function getUnreadCount(): int
     {
+        self::ensureSchema();
         global $ok_db;
+
         $uid = (int)($_SESSION['user_id'] ?? 0);
         if ($uid === 0) {
             return 0;
         }
 
         return (int)$ok_db->get_var(
-            "SELECT COUNT(*) FROM " . self::TABLE_NOTIF . " WHERE FIND_IN_SET(?, for_user_id) AND (read_by_users IS NULL OR read_by_users = '' OR NOT FIND_IN_SET(?, read_by_users))",
-            [$uid, $uid]
+            'SELECT COUNT(*) FROM ' . self::TABLE_RECIPIENTS . ' r INNER JOIN ' . self::TABLE_NOTIF . ' n ON n.id = r.notification_id WHERE r.user_id = ? AND r.is_read = 0',
+            [$uid]
         );
     }
 
     public static function getLatestMessage(): string
     {
+        self::ensureSchema();
         global $ok_db;
+
         $uid = (int)($_SESSION['user_id'] ?? 0);
         if ($uid === 0) {
             return '';
         }
 
         return (string)$ok_db->get_var(
-            "SELECT message FROM " . self::TABLE_NOTIF . " WHERE FIND_IN_SET(?, for_user_id) AND (read_by_users IS NULL OR read_by_users = '' OR NOT FIND_IN_SET(?, read_by_users)) ORDER BY created_at DESC LIMIT 1",
-            [$uid, $uid]
+            'SELECT n.message FROM ' . self::TABLE_RECIPIENTS . ' r INNER JOIN ' . self::TABLE_NOTIF . ' n ON n.id = r.notification_id WHERE r.user_id = ? AND r.is_read = 0 ORDER BY n.created_at DESC, n.id DESC LIMIT 1',
+            [$uid]
         );
     }
 
@@ -261,7 +309,7 @@ class OkNotificationManager
         global $ok_db;
 
         $value = $ok_db->get_var(
-            "SELECT option_value FROM " . self::TABLE_OPTIONS . " WHERE option_name = ? LIMIT 1",
+            'SELECT option_value FROM ' . self::TABLE_OPTIONS . ' WHERE option_name = ? LIMIT 1',
             [$name]
         );
 
@@ -283,7 +331,6 @@ class OkNotificationManager
         $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
         return $proto . '://' . $host . '/' . ltrim($link, '/');
     }
-
 
     public static function enforcePollRateLimit(): void
     {
@@ -365,13 +412,7 @@ function ok_add_notification($message, $type = 'info', $targets = [], $link = ''
 }
 
 if (isset($_GET['ajax_action']) && $_GET['ajax_action'] === 'get_unread_count') {
-    if (!isset($_SESSION['user_id'])) {
-        http_response_code(403);
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['error' => 'Forbidden']);
-        exit;
-    }
-
+    ok_require_login(true);
     OkNotificationManager::enforcePollRateLimit();
 
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
