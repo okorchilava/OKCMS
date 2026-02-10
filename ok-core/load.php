@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 /**
  * FILE: ok-core/load.php
- * OK Engine — Core Loader
+ * OK Engine — Core Loader (Strict)
  */
 
 if (defined('OK_LOADED')) {
@@ -11,39 +11,36 @@ if (defined('OK_LOADED')) {
 }
 define('OK_LOADED', true);
 
-if (!function_exists('ok_str_starts_with')) {
-    function ok_str_starts_with(string $haystack, string $needle): bool {
-        return $needle === '' || substr($haystack, 0, strlen($needle)) === $needle;
-    }
+function ok_str_starts_with(string $haystack, string $needle): bool {
+    return $needle === '' || substr($haystack, 0, strlen($needle)) === $needle;
 }
-if (!function_exists('ok_str_ends_with')) {
-    function ok_str_ends_with(string $haystack, string $needle): bool {
-        if ($needle === '') return true;
-        $len = strlen($needle);
-        return substr($haystack, -$len) === $needle;
-    }
+
+function ok_str_ends_with(string $haystack, string $needle): bool {
+    if ($needle === '') return true;
+    $len = strlen($needle);
+    return substr($haystack, -$len) === $needle;
 }
 
 define('OK_VERSION', '1.6.0');
 define('OK_START_TIME', microtime(true));
 
+define('OK_SANDBOX_MODE', true);
+
 $OK_CORE = __DIR__;
 $OK_ROOT = dirname(__DIR__);
 $OK_DEBUG_LOG = $OK_ROOT . '/ok-content/debug.log';
 
-if (!function_exists('ok_loader_log')) {
-    function ok_loader_log(string $message, array $context = [], string $level = 'INFO'): void {
-        global $OK_DEBUG_LOG;
-        $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
-        if (!empty($context)) {
-            $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            if ($json !== false) {
-                $line .= ' | ' . $json;
-            }
+function ok_loader_log(string $message, array $context = [], string $level = 'INFO'): void {
+    global $OK_DEBUG_LOG;
+    $line = '[' . date('Y-m-d H:i:s') . "] [{$level}] " . $message;
+    if (!empty($context)) {
+        $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($json !== false) {
+            $line .= ' | ' . $json;
         }
-        $line .= PHP_EOL;
-        @file_put_contents($OK_DEBUG_LOG, $line, FILE_APPEND | LOCK_EX);
     }
+    $line .= PHP_EOL;
+    file_put_contents($OK_DEBUG_LOG, $line, FILE_APPEND | LOCK_EX);
 }
 
 ini_set('log_errors', '1');
@@ -51,28 +48,17 @@ ini_set('error_log', $OK_DEBUG_LOG);
 error_reporting(E_ALL);
 
 $config_path = $OK_ROOT . '/ok-config.php';
-if (is_file($config_path)) {
-    require_once $config_path;
-} else {
-    $current_script = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
-    if ($current_script !== 'install.php') {
-        if (!headers_sent()) {
-            header('Location: /ok-admin/install.php');
-        }
-        exit;
-    }
+if (!is_file($config_path)) {
+    throw new RuntimeException('ok-config.php is missing.');
 }
+require_once $config_path;
 
-if (defined('OK_DEBUG') && OK_DEBUG === true) {
+if (OK_DEBUG === true) {
     ini_set('display_errors', '1');
     ini_set('display_startup_errors', '1');
 } else {
     ini_set('display_errors', '0');
     ini_set('display_startup_errors', '0');
-}
-
-if (!defined('OK_SANDBOX_MODE')) {
-    define('OK_SANDBOX_MODE', true);
 }
 
 set_error_handler(function ($severity, $message, $file, $line) {
@@ -82,12 +68,7 @@ set_error_handler(function ($severity, $message, $file, $line) {
         'file' => $file,
         'line' => $line,
     ], 'ERROR');
-
-    if (defined('OK_SANDBOX_MODE') && OK_SANDBOX_MODE === true) {
-        return true;
-    }
-
-    return false;
+    return true;
 });
 
 set_exception_handler(function (Throwable $e) {
@@ -98,14 +79,12 @@ set_exception_handler(function (Throwable $e) {
         'exception' => get_class($e),
     ], 'ERROR');
 
-    if (defined('OK_SANDBOX_MODE') && OK_SANDBOX_MODE === true) {
-        if (!headers_sent()) {
-            http_response_code(500);
-            header('Content-Type: text/html; charset=utf-8');
-        }
-        echo '<h1>System recovered in sandbox mode.</h1>';
-        exit;
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: text/html; charset=utf-8');
     }
+    echo '<h1>System recovered in sandbox mode.</h1>';
+    exit;
 });
 
 register_shutdown_function(function () {
@@ -120,7 +99,7 @@ $is_https =
     (!empty($_SERVER['SERVER_PORT']) && (int)$_SERVER['SERVER_PORT'] === 443) ||
     (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
-if (session_status() === PHP_SESSION_NONE) {
+if (session_status() !== PHP_SESSION_ACTIVE) {
     $opts = [
         'cookie_httponly' => true,
         'cookie_secure'   => $is_https,
@@ -166,67 +145,56 @@ $core_functions = [
 
 foreach ($core_functions as $file) {
     $path = $OK_CORE . '/functions/' . $file . '.php';
-    if (is_file($path)) {
-        require_once $path;
-    } else {
-        ok_loader_log('Missing core file.', ['path' => $path], 'WARNING');
+    if (!is_file($path)) {
+        throw new RuntimeException('Missing core file: ' . $path);
     }
+    require_once $path;
 }
 
 $core_setup = $OK_CORE . '/core-setup.php';
-if (is_file($core_setup)) {
-    require_once $core_setup;
+if (!is_file($core_setup)) {
+    throw new RuntimeException('Missing core setup file.');
 }
+require_once $core_setup;
 
-if (function_exists('get_ok_option')) {
-    $tz = (string)get_ok_option('timezone_string');
-    if (!$tz && defined('OK_DEFAULT_TIMEZONE')) {
-        $tz = (string)OK_DEFAULT_TIMEZONE;
-    }
-    date_default_timezone_set($tz ?: 'Asia/Tbilisi');
-} else {
-    date_default_timezone_set('Asia/Tbilisi');
+$tz = (string)get_ok_option('timezone_string');
+if ($tz === '' && defined('OK_DEFAULT_TIMEZONE')) {
+    $tz = (string)OK_DEFAULT_TIMEZONE;
 }
+if ($tz === '') {
+    throw new RuntimeException('Timezone is not configured.');
+}
+date_default_timezone_set($tz);
 
-if (function_exists('add_ok_action') && function_exists('ok_setup_main_query')) {
-    add_ok_action('init', 'ok_setup_main_query');
-}
+add_ok_action('init', 'ok_setup_main_query');
 
 require_once $OK_CORE . '/functions/function-pluginloader.php';
-if (function_exists('ok_core_load_plugins')) {
-    ok_core_load_plugins();
-}
+ok_core_load_plugins();
 
 $ok_public_dir = $OK_ROOT . '/ok-public/';
-if (is_dir($ok_public_dir)) {
-    $public_files = glob($ok_public_dir . '*.php');
-    if ($public_files) {
-        foreach ($public_files as $p_file) {
-            if (is_file($p_file)) {
-                require_once $p_file;
-            }
-        }
-    }
+if (!is_dir($ok_public_dir)) {
+    throw new RuntimeException('ok-public directory is missing.');
 }
 
-$theme_slug = 'default';
-if (function_exists('get_ok_option')) {
-    $theme_slug = (string)get_ok_option('active_theme', 'default');
+$public_files = glob($ok_public_dir . '*.php');
+foreach ($public_files as $p_file) {
+    require_once $p_file;
 }
-$theme_slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $theme_slug) ?: 'default';
+
+$theme_slug = (string)get_ok_option('active_theme', 'default');
+$theme_slug = preg_replace('/[^a-zA-Z0-9_-]/', '', $theme_slug);
+if ($theme_slug === '') {
+    throw new RuntimeException('Invalid active theme value.');
+}
 
 $theme_base = $OK_ROOT . '/ok-content/themes/';
 $theme_functions = $theme_base . $theme_slug . '/functions.php';
 if (!is_file($theme_functions)) {
-    $theme_functions = $theme_base . 'default/functions.php';
+    throw new RuntimeException('Theme functions file missing for theme: ' . $theme_slug);
 }
-if (is_file($theme_functions)) {
-    require_once $theme_functions;
-}
+require_once $theme_functions;
 
-if (function_exists('do_ok_action')) {
-    do_ok_action('init');
-}
+do_ok_action('init');
 
     'functions-widgets',
     'uploader',

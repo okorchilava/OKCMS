@@ -1,25 +1,25 @@
 <?php
 /**
  * FILE: ok-core/functions/function-pluginloader.php
- * OK Engine - Hardened Plugin Loader
+ * OK Engine - Strict Plugin Loader
  */
 
 function ok_normalize_plugin_entry(string $plugin_file): string {
     $plugin_file = trim(str_replace('\\', '/', $plugin_file));
     $plugin_file = ltrim($plugin_file, '/');
 
-    if (strpos($plugin_file, '..') !== false) {
-        return '';
+    if ($plugin_file === '' || strpos($plugin_file, '..') !== false) {
+        throw new RuntimeException('Invalid plugin path.');
     }
 
     if (!preg_match('/^[a-zA-Z0-9_\/-]+\.php$/', $plugin_file)) {
-        return '';
+        throw new RuntimeException('Plugin path format is invalid.');
     }
 
     return $plugin_file;
 }
 
-function ok_detect_plugin_entry(string $dir): ?string {
+function ok_detect_plugin_entry(string $dir): string {
     $dirname = basename($dir);
 
     $primary = $dir . '/' . $dirname . '.php';
@@ -32,106 +32,54 @@ function ok_detect_plugin_entry(string $dir): ?string {
         return $dirname . '/index.php';
     }
 
-    return null;
+    throw new RuntimeException('Plugin entry file not found for: ' . $dirname);
 }
 
 function ok_core_load_plugins() {
-    $plugins_root = rtrim((string)($_SERVER['DOCUMENT_ROOT'] ?? ''), '/') . '/ok-content/plugins/';
-
+    $plugins_root = rtrim((string)$_SERVER['DOCUMENT_ROOT'], '/') . '/ok-content/plugins/';
     if (!is_dir($plugins_root)) {
-        if (function_exists('ok_log_debug')) {
-            ok_log_debug('Plugin root directory not found.', ['plugins_root' => $plugins_root], 'WARNING');
-        }
-        return;
+        throw new RuntimeException('Plugin root directory not found: ' . $plugins_root);
     }
 
     $active_plugins = get_ok_option('active_plugins', []);
     if (!is_array($active_plugins)) {
-        $active_plugins = [];
+        throw new RuntimeException('active_plugins must be an array.');
     }
 
     if (empty($active_plugins)) {
         $dirs = glob($plugins_root . '*', GLOB_ONLYDIR);
-        $found_new = false;
-
-        if ($dirs) {
-            foreach ($dirs as $dir) {
-                $entry = ok_detect_plugin_entry($dir);
-                if ($entry !== null) {
-                    $active_plugins[] = $entry;
-                    $found_new = true;
-                }
-            }
+        foreach ($dirs as $dir) {
+            $active_plugins[] = ok_detect_plugin_entry($dir);
         }
-
-        if ($found_new) {
-            $active_plugins = array_values(array_unique($active_plugins));
-            update_ok_option('active_plugins', $active_plugins);
-            if (function_exists('ok_log_debug')) {
-                ok_log_debug('Auto-discovered plugins and updated active list.', ['count' => count($active_plugins)]);
-            }
-        }
+        $active_plugins = array_values(array_unique($active_plugins));
+        update_ok_option('active_plugins', $active_plugins);
+        ok_log_debug('Auto-discovered plugins.', ['count' => count($active_plugins)]);
     }
 
-    $filtered_active = [];
-    $has_crash = false;
+    $real_root = realpath($plugins_root);
+    if ($real_root === false) {
+        throw new RuntimeException('Plugin root realpath failed.');
+    }
 
     foreach ($active_plugins as $plugin_file) {
         $normalized = ok_normalize_plugin_entry((string)$plugin_file);
-        if ($normalized === '') {
-            $has_crash = true;
-            if (function_exists('ok_log_debug')) {
-                ok_log_debug('Invalid plugin path rejected.', ['plugin' => $plugin_file], 'WARNING');
-            }
-            continue;
-        }
-
         $full_path = $plugins_root . $normalized;
-        $real_root = realpath($plugins_root);
         $real_full = realpath($full_path);
 
-        if ($real_root === false || $real_full === false || strpos($real_full, $real_root) !== 0 || !is_file($real_full)) {
-            $has_crash = true;
-            if (function_exists('ok_log_debug')) {
-                ok_log_debug('Plugin file missing or outside allowed path.', ['plugin' => $normalized], 'WARNING');
-            }
-            continue;
+        if ($real_full === false || strpos($real_full, $real_root) !== 0 || !is_file($real_full)) {
+            ok_log_debug('Plugin path validation failed.', ['plugin' => $normalized], 'ERROR');
+            throw new RuntimeException('Plugin file invalid: ' . $normalized);
         }
 
-        $filtered_active[] = $normalized;
-
-        $runner = function () use ($real_full, $normalized) {
+        ok_run_sandboxed(function () use ($real_full, $normalized) {
             ob_start();
             include_once $real_full;
             $buffer = ob_get_clean();
-            if ($buffer !== '' && function_exists('ok_log_debug')) {
-                ok_log_debug('Plugin produced output during load.', ['plugin' => $normalized], 'WARNING');
+            if ($buffer !== '') {
+                ok_log_debug('Plugin printed output while loading.', ['plugin' => $normalized], 'WARNING');
             }
-        };
-
-        if (function_exists('ok_run_sandboxed')) {
-            $loaded = ok_run_sandboxed($runner, false, ['plugin' => $normalized]);
-            if ($loaded === false) {
-                $has_crash = true;
-                $filtered_active = array_values(array_diff($filtered_active, [$normalized]));
-            }
-        } else {
-            try {
-                $runner();
-            } catch (Throwable $e) {
-                $has_crash = true;
-                $filtered_active = array_values(array_diff($filtered_active, [$normalized]));
-                error_log('Plugin Crash: ' . $e->getMessage());
-            }
-        }
+        }, ['plugin' => $normalized]);
     }
 
-    $filtered_active = array_values(array_unique($filtered_active));
-    if ($has_crash || $filtered_active !== array_values(array_unique($active_plugins))) {
-        update_ok_option('active_plugins', $filtered_active);
-    }
-
-    if (function_exists('do_ok_action')) {
-        do_ok_action('ok_plugins_loaded');
-    }
+    do_ok_action('ok_plugins_loaded');
 }

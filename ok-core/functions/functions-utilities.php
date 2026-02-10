@@ -87,14 +87,7 @@ if (!function_exists('ok_send_json_error')) {
 if (!function_exists('ok_get_debug_log_path')) {
     function ok_get_debug_log_path(): string
     {
-        static $path = null;
-        if ($path !== null) {
-            return $path;
-        }
-
-        $root = dirname(dirname(__DIR__));
-        $path = $root . '/ok-content/debug.log';
-        return $path;
+        return dirname(dirname(__DIR__)) . '/ok-content/debug.log';
     }
 }
 
@@ -117,31 +110,15 @@ if (!function_exists('ok_log_debug')) {
 if (!function_exists('ok_is_sandbox_mode')) {
     function ok_is_sandbox_mode(): bool
     {
-        if (defined('OK_SANDBOX_MODE')) {
-            return OK_SANDBOX_MODE === true;
-        }
-
-        if (function_exists('get_ok_option')) {
-            return (bool)get_ok_option('sandbox_mode', false);
-        }
-
-        return false;
+        return OK_SANDBOX_MODE === true;
     }
 }
 
 if (!function_exists('ok_run_sandboxed')) {
-    function ok_run_sandboxed(callable $callback, $fallback = null, array $context = [])
+    function ok_run_sandboxed(callable $callback, array $context = [])
     {
-        try {
-            return $callback();
-        } catch (Throwable $e) {
-            ok_log_debug('Sandbox prevented crash: ' . $e->getMessage(), $context + [
-                'exception' => get_class($e),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-            ], 'ERROR');
-            return $fallback;
-        }
+        ok_log_debug('Sandbox execution started.', $context);
+        return $callback();
     }
 }
 

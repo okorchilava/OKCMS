@@ -77,13 +77,11 @@ function check_admin_referer($action = -1, string $query_arg = '_ok_nonce'): boo
         return true;
     }
 
-    if (function_exists('ok_log_debug')) {
-        ok_log_debug('Security check failed in check_admin_referer.', [
-            'action' => (string)$action,
-            'uri' => $_SERVER['REQUEST_URI'] ?? '',
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
-        ], 'WARNING');
-    }
+    ok_log_debug('Security check failed in check_admin_referer.', [
+        'action' => (string)$action,
+        'uri' => $_SERVER['REQUEST_URI'] ?? '',
+        'ip' => $_SERVER['REMOTE_ADDR'] ?? '',
+    ], 'WARNING');
 
     if (!headers_sent()) {
         http_response_code(403);
@@ -107,14 +105,12 @@ function ok_sec_check($action = -1): void {
 }
 
 function ok_die(string $title, string $message): void {
-    if (function_exists('ok_log_debug')) {
-        ok_log_debug('ok_die triggered.', [
-            'title' => $title,
-            'message' => $message,
-            'uri' => $_SERVER['REQUEST_URI'] ?? '',
-            'method' => $_SERVER['REQUEST_METHOD'] ?? '',
-        ], 'ERROR');
-    }
+    ok_log_debug('ok_die triggered.', [
+        'title' => $title,
+        'message' => $message,
+        'uri' => $_SERVER['REQUEST_URI'] ?? '',
+        'method' => $_SERVER['REQUEST_METHOD'] ?? '',
+    ], 'ERROR');
 
     if (!headers_sent()) {
         http_response_code(403);
