@@ -81,6 +81,60 @@ if (!function_exists('ok_send_json_error')) {
 }
 
 /* --------------------------------------------------------------------------
+ * 1.1 Debug logging & sandbox safety
+ * -------------------------------------------------------------------------- */
+
+if (!function_exists('ok_get_debug_log_path')) {
+    function ok_get_debug_log_path(): string
+    {
+        return dirname(dirname(__DIR__)) . '/ok-content/debug.log';
+    }
+}
+
+if (!function_exists('ok_log_debug')) {
+    function ok_log_debug(string $message, array $context = [], string $level = 'INFO'): void
+    {
+        $safeLevel = strtoupper(preg_replace('/[^A-Z]/', '', $level));
+        if ($safeLevel === '') {
+            $safeLevel = 'INFO';
+        }
+
+        $safeMessage = str_replace(["\r", "\n"], ['\\r', '\\n'], $message);
+        $line = '[' . date('Y-m-d H:i:s') . "] [{$safeLevel}] " . $safeMessage;
+        $context['request_id'] = defined('OK_REQUEST_ID') ? OK_REQUEST_ID : 'n/a';
+
+        if (!empty($context)) {
+            $json = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($json !== false) {
+                $line .= ' | ' . $json;
+            }
+        }
+        $line .= PHP_EOL;
+
+        $path = ok_get_debug_log_path();
+        file_put_contents($path, $line, FILE_APPEND | LOCK_EX);
+        if (is_file($path)) {
+            @chmod($path, 0600);
+        }
+    }
+}
+
+if (!function_exists('ok_is_sandbox_mode')) {
+    function ok_is_sandbox_mode(): bool
+    {
+        return OK_SANDBOX_MODE === true;
+    }
+}
+
+if (!function_exists('ok_run_sandboxed')) {
+    function ok_run_sandboxed(callable $callback, array $context = [])
+    {
+        ok_log_debug('Sandbox execution started.', $context);
+        return $callback();
+    }
+}
+
+/* --------------------------------------------------------------------------
  * 2. Date & Time (Settings-Driven & Multilingual)
  * -------------------------------------------------------------------------- */
 

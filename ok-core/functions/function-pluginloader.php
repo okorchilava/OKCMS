@@ -1,65 +1,114 @@
 <?php
 /**
  * FILE: ok-core/functions/function-pluginloader.php
- * OK Engine - Smart Plugin Loader
+ * OK Engine - Strict Plugin Loader
  */
 
-function ok_core_load_plugins() {
-    $plugins_root = $_SERVER['DOCUMENT_ROOT'] . '/ok-content/plugins/';
-    $active_plugins = get_ok_option('active_plugins', []);
+function ok_normalize_plugin_entry(string $plugin_file): string {
+    $plugin_file = trim(str_replace('\\', '/', $plugin_file));
+    $plugin_file = ltrim($plugin_file, '/');
 
-    if (!is_array($active_plugins)) $active_plugins = [];
-
-    // Auto-Discovery: თუ სია ცარიელია, ვეძებთ და ვამატებთ
-    if (empty($active_plugins)) {
-        if (is_dir($plugins_root)) {
-            $dirs = glob($plugins_root . '*', GLOB_ONLYDIR);
-            $found_new = false;
-            if ($dirs) {
-                foreach ($dirs as $dir) {
-                    $dirname = basename($dir);
-                    if (file_exists($dir . '/' . $dirname . '.php')) {
-                        $active_plugins[] = $dirname . '/' . $dirname . '.php';
-                        $found_new = true;
-                    } elseif (file_exists($dir . '/index.php')) {
-                        $active_plugins[] = $dirname . '/index.php';
-                        $found_new = true;
-                    }
-                }
-            }
-            if ($found_new) {
-                update_ok_option('active_plugins', array_values(array_unique($active_plugins)));
-            }
-        }
+    if ($plugin_file === '' || strpos($plugin_file, '..') !== false) {
+        throw new RuntimeException('Invalid plugin path.');
     }
 
-    $has_crash = false;
-    foreach ($active_plugins as $key => $plugin_file) {
-        $full_path = $plugins_root . $plugin_file;
+    if (!preg_match('/^[a-zA-Z0-9_\/-]+\.php$/', $plugin_file)) {
+        throw new RuntimeException('Plugin path format is invalid.');
+    }
 
-        if (!file_exists($full_path)) {
-            unset($active_plugins[$key]);
-            $has_crash = true;
-            continue;
-        }
+    return $plugin_file;
+}
 
-        ob_start();
+function ok_detect_plugin_entry(string $dir): string {
+    $dirname = basename($dir);
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $dirname)) {
+        throw new RuntimeException('Invalid plugin directory name: ' . $dirname);
+    }
+
+    $primary = $dir . '/' . $dirname . '.php';
+    if (is_file($primary)) {
+        return $dirname . '/' . $dirname . '.php';
+    }
+
+    $index = $dir . '/index.php';
+    if (is_file($index)) {
+        return $dirname . '/index.php';
+    }
+
+    throw new RuntimeException('Plugin entry file not found for: ' . $dirname);
+}
+
+
+function ok_plugin_allowlist(): array {
+    $allow = get_ok_option('plugin_allowlist', []);
+    if (!is_array($allow)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($allow as $entry) {
         try {
-            include_once $full_path;
-            ob_end_flush();
+            $normalized[] = ok_normalize_plugin_entry((string)$entry);
         } catch (Throwable $e) {
-            ob_end_clean();
-            error_log("Plugin Crash: " . $e->getMessage());
-            unset($active_plugins[$key]);
-            $has_crash = true;
+            ok_log_debug('Invalid allowlist entry ignored.', ['entry' => $entry], 'WARNING');
         }
     }
 
-    if ($has_crash) {
-        update_ok_option('active_plugins', array_values($active_plugins));
+    return array_values(array_unique($normalized));
+}
+
+function ok_core_load_plugins() {
+    $plugins_root = rtrim((string)$_SERVER['DOCUMENT_ROOT'], '/') . '/ok-content/plugins/';
+    if (!is_dir($plugins_root)) {
+        throw new RuntimeException('Plugin root directory not found: ' . $plugins_root);
     }
 
-    if (function_exists('do_ok_action')) {
-        do_ok_action('ok_plugins_loaded');
+    $active_plugins = get_ok_option('active_plugins', []);
+    if (!is_array($active_plugins)) {
+        throw new RuntimeException('active_plugins must be an array.');
     }
+
+    if (empty($active_plugins)) {
+        $dirs = glob($plugins_root . '*', GLOB_ONLYDIR);
+        foreach ($dirs as $dir) {
+            $active_plugins[] = ok_detect_plugin_entry($dir);
+        }
+        $active_plugins = array_values(array_unique($active_plugins));
+        update_ok_option('active_plugins', $active_plugins);
+        ok_log_debug('Auto-discovered plugins.', ['count' => count($active_plugins)]);
+    }
+
+    $real_root = realpath($plugins_root);
+    if ($real_root === false) {
+        throw new RuntimeException('Plugin root realpath failed.');
+    }
+
+    $allowlist = ok_plugin_allowlist();
+
+    foreach ($active_plugins as $plugin_file) {
+        $normalized = ok_normalize_plugin_entry((string)$plugin_file);
+        if (!empty($allowlist) && !in_array($normalized, $allowlist, true)) {
+            throw new RuntimeException('Plugin is not in allowlist: ' . $normalized);
+        }
+
+        $full_path = $plugins_root . $normalized;
+        $real_full = realpath($full_path);
+
+        if ($real_full === false || strpos($real_full, $real_root) !== 0 || !is_file($real_full) || !is_readable($real_full) || is_link($full_path)) {
+            ok_log_debug('Plugin path validation failed.', ['plugin' => $normalized], 'ERROR');
+            throw new RuntimeException('Plugin file invalid: ' . $normalized);
+        }
+
+        ok_run_sandboxed(function () use ($real_full, $normalized) {
+            ob_start();
+            include_once $real_full;
+            $buffer = ob_get_clean();
+            if ($buffer !== '') {
+                ok_log_debug('Plugin printed output while loading.', ['plugin' => $normalized], 'ERROR');
+                throw new RuntimeException('Plugin produced output during bootstrap: ' . $normalized);
+            }
+        }, ['plugin' => $normalized]);
+    }
+
+    do_ok_action('ok_plugins_loaded');
 }

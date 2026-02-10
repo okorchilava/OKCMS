@@ -88,6 +88,32 @@ function ok_render_settings() {
             $dev_mode = isset($_POST['dev_mode']) ? 1 : 0;
             update_ok_option('dev_mode', $dev_mode);
 
+            // Notification Mail
+            $mail_notifications_enabled = isset($_POST['mail_notifications_enabled']) ? 1 : 0;
+            update_ok_option('mail_notifications_enabled', $mail_notifications_enabled);
+
+            // Notification polling rate limit (requests/min per session)
+            $poll_limit = isset($_POST['notif_poll_rate_limit']) ? (int)$_POST['notif_poll_rate_limit'] : 60;
+            if ($poll_limit < 10) $poll_limit = 10;
+            if ($poll_limit > 300) $poll_limit = 300;
+            update_ok_option('notif_poll_rate_limit', $poll_limit);
+
+            // Plugin allowlist (one plugin entry per line: slug/file.php)
+            $allowlist_raw = trim((string)($_POST['plugin_allowlist'] ?? ''));
+            $allowlist = [];
+            if ($allowlist_raw !== '') {
+                $lines = preg_split('/\\r\\n|\\r|\\n/', $allowlist_raw);
+                if (is_array($lines)) {
+                    foreach ($lines as $line) {
+                        $entry = trim($line);
+                        if ($entry !== '') {
+                            $allowlist[] = $entry;
+                        }
+                    }
+                }
+            }
+            update_ok_option('plugin_allowlist', array_values(array_unique($allowlist)));
+
             $notif_message = "ფუნქციონალური პარამეტრები შეიცვალა.";
         }
 
@@ -95,7 +121,7 @@ function ok_render_settings() {
         if (!empty($notif_message) && function_exists('ok_add_notification')) {
             // ლინკი მივუთითოთ იმ გვერდზე, სადაც ვიმყოფებით
             $current_url = "index.php?page=" . htmlspecialchars($current_page);
-            ok_add_notification($notif_message, 'info', $current_url);
+            ok_add_notification($notif_message, 'info', [], $current_url);
         }
 
         echo '<div class="alert alert-success shadow-sm border-0 mb-4 fade show"><i class="bi bi-check-circle-fill me-2"></i> პარამეტრები შენახულია.</div>';
@@ -133,6 +159,14 @@ function ok_render_settings() {
     // 🛑 Functional Data
     $enable_global_sidebar = (int)get_ok_option('enable_global_sidebar', 1);
     $dev_mode              = (int)get_ok_option('dev_mode', 0);
+    $mail_notifications_enabled = (int)get_ok_option('mail_notifications_enabled', 0);
+    $notif_poll_rate_limit = (int)get_ok_option('notif_poll_rate_limit', 60);
+    if ($notif_poll_rate_limit < 10) $notif_poll_rate_limit = 10;
+    if ($notif_poll_rate_limit > 300) $notif_poll_rate_limit = 300;
+    $plugin_allowlist_arr = get_ok_option('plugin_allowlist', []);
+    if (!is_array($plugin_allowlist_arr)) $plugin_allowlist_arr = [];
+    $plugin_allowlist_text = implode("
+", $plugin_allowlist_arr);
 
     // Helpers
     $timezones = DateTimeZone::listIdentifiers();
@@ -428,6 +462,30 @@ function ok_render_settings() {
                                 <div class="form-check form-switch">
                                     <input class="form-check-input fs-4" type="checkbox" name="enable_global_sidebar" id="enable_global_sidebar" value="1" <?php echo ($enable_global_sidebar == 1) ? 'checked' : ''; ?>>
                                 </div>
+                            </div>
+
+
+                            <div class="d-flex align-items-center justify-content-between p-3 border rounded bg-light mb-3">
+                                <div>
+                                    <h6 class="fw-bold mb-1"><i class="bi bi-envelope-check me-2"></i>ელფოსტის ნოთიფიკაციები</h6>
+                                    <small class="text-muted">ჩართავს სისტემური ნოთიფიკაციების ელფოსტით გაგზავნას.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input fs-4" type="checkbox" name="mail_notifications_enabled" id="mail_notifications_enabled" value="1" <?php echo ($mail_notifications_enabled == 1) ? 'checked' : ''; ?>>
+                                </div>
+                            </div>
+
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <label class="form-label fw-bold"><i class="bi bi-speedometer2 me-2"></i>Notification Poll Rate Limit (10-300 / წუთში)</label>
+                                <input type="number" min="10" max="300" class="form-control" name="notif_poll_rate_limit" value="<?php echo (int)$notif_poll_rate_limit; ?>">
+                                <small class="text-muted">გამოიყენება unread endpoint-ზე სესიის მიხედვით.</small>
+                            </div>
+
+                            <div class="p-3 border rounded bg-light mb-3">
+                                <label class="form-label fw-bold"><i class="bi bi-shield-lock me-2"></i>Plugin Allowlist</label>
+                                <textarea class="form-control font-monospace" rows="6" name="plugin_allowlist" placeholder="ok-quiz/index.php
+ok-social/ok-social.php"><?php echo htmlspecialchars($plugin_allowlist_text, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                                <small class="text-muted">თითო plugin ფაილი ახალ ხაზზე. თუ ცარიელია, allowlist enforcement გამორთულია.</small>
                             </div>
 
                             <div class="d-flex align-items-center justify-content-between p-3 border rounded border-warning bg-warning bg-opacity-10 mb-3">
