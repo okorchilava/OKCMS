@@ -71,7 +71,9 @@ function ok_register_core_widgets() {
         'admin_template' => '<div class="mb-2"><label class="small fw-bold text-muted">სათაური:</label><input type="text" name="__NAME_PREFIX__[title]" class="form-control form-control-sm" value="__TITLE__"></div><div class="mb-2"><label class="small fw-bold text-muted">რაოდენობა:</label><input type="number" name="__NAME_PREFIX__[limit]" class="form-control form-control-sm" value="__LIMIT__" min="1" max="20"></div>',
         'render_callback' => function($data) use ($ok_db) {
             $limit = isset($data['limit']) ? (int)$data['limit'] : 5;
-            $posts = $ok_db->get_results("SELECT id, post_title, post_name, post_image, post_date FROM ok_posts WHERE post_type='post' AND post_status='published' ORDER BY post_date DESC LIMIT $limit");
+            if ($limit < 1) $limit = 1;
+            if ($limit > 20) $limit = 20;
+            $posts = $ok_db->get_results('SELECT id, post_title, post_name, post_image, post_date FROM ok_posts WHERE post_type = ? AND post_status = ? ORDER BY post_date DESC LIMIT ' . (int)$limit, ['post', 'published']);
             
             if($posts) {
                 $perm = get_ok_option('permalink_structure', 'plain');

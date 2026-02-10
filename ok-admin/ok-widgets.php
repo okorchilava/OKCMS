@@ -8,6 +8,7 @@ add_ok_action('admin_menu', function() {
 });
 
 function ok_render_widgets() {
+    ok_require_capability('manage_options');
     // 🛑 1. ვიღებთ ყველა საჭირო გლობალურ ცვლადს
     global $ok_registered_sidebars, $ok_registered_widgets, $ok_registered_nav_menus;
 
@@ -49,7 +50,11 @@ function ok_render_widgets() {
                                 // HTML-ის დაშვება საჭიროა ტექსტური ვიჯეტებისთვის, 
                                 // მაგრამ სასურველია აქ ok_sanitize_text_field გამოყენება მომავალში.
                                 // ამ ეტაპზე ვტოვებთ ისე, როგორც იყო (Admin-ს ვენდობით).
-                                $safe_data[$key] = $val;
+                                if (is_array($val)) {
+                                    $safe_data[$key] = array_map(static function($v){ return is_scalar($v) ? trim((string)$v) : ''; }, $val);
+                                } else {
+                                    $safe_data[$key] = is_scalar($val) ? trim((string)$val) : '';
+                                }
                             }
                         }
                         
