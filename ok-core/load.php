@@ -95,7 +95,6 @@ if (!defined('NONCE_KEY') || NONCE_KEY === '') {
         $fallback_nonce_key = hash('sha256', $OK_ROOT . '|nonce-key|' . PHP_VERSION);
     }
     define('NONCE_KEY', $fallback_nonce_key);
-    ok_loader_log('NONCE_KEY missing in ok-config.php. Using runtime fallback key.', [], 'WARNING');
 }
 
 if (!defined('NONCE_SALT') || NONCE_SALT === '') {
@@ -104,7 +103,6 @@ if (!defined('NONCE_SALT') || NONCE_SALT === '') {
         $fallback_nonce_salt = hash('sha256', $OK_ROOT . '|nonce-salt|' . php_uname('n'));
     }
     define('NONCE_SALT', $fallback_nonce_salt);
-    ok_loader_log('NONCE_SALT missing in ok-config.php. Using runtime fallback salt.', [], 'WARNING');
 }
 
 if (defined('OK_DEBUG') && OK_DEBUG === true) {
