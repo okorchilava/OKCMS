@@ -224,3 +224,28 @@ if (!function_exists('the_permalink')) {
         echo htmlspecialchars(get_the_permalink(), ENT_QUOTES, 'UTF-8');
     }
 }
+
+
+if (!function_exists('comments_template')) {
+    function comments_template(?string $file = null): void
+    {
+        $theme = ok_theme_path();
+
+        $candidate = 'comments.php';
+        if ($file !== null && $file !== '') {
+            $safe = basename($file);
+            if (preg_match('/^[a-zA-Z0-9._-]+$/', $safe)) {
+                $candidate = $safe;
+            }
+        }
+
+        $path = $theme . '/' . $candidate;
+        if (!is_file($path)) {
+            $path = $theme . '/comments.php';
+        }
+
+        if (is_file($path)) {
+            require $path;
+        }
+    }
+}
