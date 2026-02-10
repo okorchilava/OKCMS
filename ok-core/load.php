@@ -178,6 +178,7 @@ $core_functions = [
     'ok-registered-hooks',
     'functions-post-meta',
     'functions-users',
+    'functions-access',
     'functions-admin',
     'functions-security',
     'functions-widgets',
